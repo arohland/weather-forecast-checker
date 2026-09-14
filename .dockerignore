@@ -1,0 +1,32 @@
+# The image is built from explicit COPY instructions in the Dockerfile; this
+# file keeps the build context small and, above all, keeps local state and
+# credentials out of it.
+
+.git
+.github
+.Rproj.user
+.Rhistory
+.RData
+.env
+.Renviron
+*-key.json
+service-account*.json
+application_default_credentials.json
+
+# renv: only the bootstrap files are needed (they install the exact renv
+# version from renv.lock). The host's project library and caches are
+# platform-specific; the image restores its own. Pattern from renv's Docker
+# vignette.
+renv/*
+!renv/activate.R
+!renv/settings.json
+
+# Not needed at runtime.
+docs
+pkgdown
+scripts
+terraform
+tests
+*.Rcheck
+wxpipe_*.tar.gz
+cobertura.xml
