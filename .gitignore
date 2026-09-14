@@ -1,0 +1,29 @@
+# R / RStudio
+.Rproj.user/
+.Rhistory
+.RData
+.Ruserdata
+*.Rcheck/
+wxpipe_*.tar.gz
+
+# Local environment and credentials -- never commit these
+.env
+.Renviron
+*-key.json
+service-account*.json
+application_default_credentials.json
+
+# Terraform
+terraform/**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+crash.log
+
+# pkgdown build output (the docs/ folder holds hand-written ADRs and the
+# generated data dictionary, so the site is built elsewhere)
+pkgdown/site/
+
+# Coverage artefacts
+cobertura.xml

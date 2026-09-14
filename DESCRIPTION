@@ -1,0 +1,25 @@
+Package: wxpipe
+Title: Extract-and-Load Pipeline for Salzburg Weather Observations and Forecasts
+Version: 0.0.0.9000
+Authors@R:
+    person("Andreas", "Rohland", , "andreas.rohland@posteo.de", role = c("aut", "cre"))
+Description: Ingests daily station observations from the GeoSphere Austria
+    Data Hub and numerical weather forecasts from Open-Meteo, lands the
+    unmodified API payloads in Google Cloud Storage and loads tidy,
+    append-only tables into BigQuery. Designed to run as a scheduled Cloud
+    Run Job; downstream modelling (dbt) and serving (Plumber) live elsewhere.
+License: MIT + file LICENSE
+URL: https://github.com/andreasrohland/weather-forecast-checker
+Depends:
+    R (>= 4.5.0)
+Imports:
+    cli,
+    rlang,
+    utils
+Suggests:
+    testthat (>= 3.0.0),
+    withr
+Config/testthat/edition: 3
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+Config/roxygen2/version: 8.1.0

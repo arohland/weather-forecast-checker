@@ -1,0 +1,6 @@
+# Normalise line endings to LF so files behave the same on Windows, in CI and
+# inside the Linux container (a CRLF shebang in exec/ingest.R breaks execution).
+* text=auto eol=lf
+
+*.gz  binary
+*.png binary

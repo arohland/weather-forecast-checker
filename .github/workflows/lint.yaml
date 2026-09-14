@@ -1,0 +1,46 @@
+# Static checks: lintr for code smells, styler (dry run) for formatting.
+# Neither needs the pinned lockfile -- they only read source code -- so this
+# job installs the two tools directly and stays fast.
+name: lint
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: "4.5.3"
+          use-public-rspm: true
+
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          extra-packages: any::lintr, any::styler, local::.
+          needs: lint
+
+      - name: lintr
+        shell: Rscript {0}
+        run: |
+          lints <- lintr::lint_package()
+          print(lints)
+          if (length(lints) > 0L) quit(status = 1L)
+
+      - name: styler (fails if any file would be reformatted)
+        shell: Rscript {0}
+        run: |
+          styler::style_dir(
+            ".",
+            exclude_dirs = c("renv", "tests/testthat/fixtures", "terraform", ".github"),
+            dry = "fail"
+          )

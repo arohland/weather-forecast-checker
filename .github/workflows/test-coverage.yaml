@@ -1,0 +1,68 @@
+# Unit tests + coverage against the exact package versions pinned in
+# renv.lock (the same set the container image is built from). Tests run fully
+# offline: HTTP is replayed from tests/testthat/fixtures via httptest2, and
+# integration tests under tests/integration/ are never run here.
+name: test-coverage
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test-coverage:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      # Belt and braces: make it impossible for CI to reach real GCP.
+      WXPIPE_INTEGRATION_TESTS: "false"
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: "4.5.3"
+          use-public-rspm: true
+
+      - uses: r-lib/actions/setup-renv@v2
+
+      # covr is measurement tooling, not code under test, so it is not pinned
+      # in renv.lock (which also feeds the production image). Install it on
+      # top of the restored library.
+      - name: Install covr
+        shell: Rscript {0}
+        run: renv::install("covr", prompt = FALSE)
+
+      - name: testthat
+        shell: Rscript {0}
+        run: |
+          testthat::test_local(reporter = testthat::CheckReporter$new(), stop_on_failure = TRUE)
+
+      - name: Coverage
+        shell: Rscript {0}
+        run: |
+          cov <- covr::package_coverage(quiet = FALSE)
+          print(cov)
+          covr::to_cobertura(cov, filename = "cobertura.xml")
+
+          # Per-file summary in the GitHub job summary page.
+          pct <- covr::percent_coverage(cov)
+          by_file <- covr::tally_coverage(cov, by = "line")
+          files <- tapply(by_file$value > 0, by_file$filename, mean) * 100
+          summary <- c(
+            sprintf("## Coverage: %.1f%%", pct),
+            "",
+            "| File | Line coverage |",
+            "|---|---|",
+            sprintf("| `%s` | %.1f%% |", names(files), files)
+          )
+          cat(summary, sep = "\n", file = Sys.getenv("GITHUB_STEP_SUMMARY"), append = TRUE)
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report
+          path: cobertura.xml
