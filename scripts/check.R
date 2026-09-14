@@ -12,7 +12,15 @@ if (!file.exists("DESCRIPTION")) {
   stop("Run this script from the repository root.", call. = FALSE)
 }
 
+cli::cli_h1("roxygen2")
+roxygen2::roxygenise()
+
 cli::cli_h1("lintr")
+# lintr's object_usage_linter resolves functions defined in other files via
+# the *installed* package namespace. Without a current install it reports
+# false "no visible global function" warnings, so install first (the CI lint
+# job does the same via `local::.`).
+utils::install.packages(".", repos = NULL, type = "source", quiet = TRUE)
 lints <- lintr::lint_package()
 print(lints)
 if (length(lints) > 0L) {
@@ -25,9 +33,6 @@ styler::style_dir(
   exclude_dirs = c("renv", "tests/testthat/fixtures", "terraform", ".github"),
   dry = "fail"
 )
-
-cli::cli_h1("roxygen2")
-roxygen2::roxygenise()
 
 cli::cli_h1("testthat")
 testthat::test_local(stop_on_failure = TRUE)

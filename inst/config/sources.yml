@@ -1,0 +1,68 @@
+# Source and location configuration for wxpipe.
+#
+# Everything location- or source-specific lives here, so adding a second
+# location is a config change, not a code change. R/config.R validates this
+# file on load and fails loudly on anything missing or malformed.
+#
+# GCP project, dataset and bucket names are deliberately NOT here: they come
+# from environment variables (see README) so the same image can target a
+# sandbox or production project.
+
+config_version: 1
+
+locations:
+  salzburg-airport:
+    name: "Salzburg Airport (Salzburg Flughafen)"
+    # Coordinates and elevation as published in the GeoSphere station
+    # metadata (see geosphere.station_id below). Forecast requests use the
+    # same point so observations and forecasts refer to one location.
+    latitude: 47.78944
+    longitude: 13.00861
+    elevation_m: 430
+    timezone: "Europe/Vienna"
+    geosphere:
+      # Discovered 2026-09-14 via
+      #   GET https://dataset.api.hub.geosphere.at/v1/station/historical/klima-v2-1d/metadata
+      # Entry: type INDIVIDUAL, name "Salzburg Flughafen", valid_from
+      # 1939-03-01, is_active true.
+      # The same site also appears as id 131 (type COMBINED, a homogenised
+      # series back to 1874). Recent values are identical; 6300 was chosen
+      # because it is the physical station rather than a composite.
+      station_id: 6300
+
+sources:
+  geosphere:
+    base_url: "https://dataset.api.hub.geosphere.at/v1"
+    # Discovered 2026-09-14 via
+    #   GET https://dataset.api.hub.geosphere.at/v1/datasets?type=station&mode=historical
+    # The "klima" daily family has klima-v1-1d (end_time 2024-09-01, no
+    # longer updated) and klima-v2-1d (end_time = today, maintained).
+    resource_id: "klima-v2-1d"
+    endpoint: "station/historical"
+    # Limits from https://dataset.api.hub.geosphere.at/v1/docs/user-guide/request-limit.html
+    # (read 2026-09-14). Size = parameters x time steps x stations, counted
+    # before the query runs, so missing values count too. The response
+    # header `datapoint-count` echoes the computed size.
+    limits:
+      max_values_per_request: 1000000
+      requests_per_second: 5
+      requests_per_hour: 240
+    # Observations are revised after first publication (quality flag moves
+    # from 10 "automatically checked" to 2x "manually checked"). The daily
+    # run therefore re-fetches this many trailing days and replaces the
+    # stored rows for them.
+    revision_window_days: 14
+    # Daily parameters to ingest. Each is fetched together with its
+    # "<name>_flag" quality code. Aggregation windows differ per parameter
+    # and are documented in inst/schemas/ and docs/data-dictionary.md.
+    parameters:
+      - tlmax
+      - tlmin
+      - tl_mittel
+      - rr
+      - so_h
+      - ffx
+      - vv_mittel
+      - p_mittel
+      - rf_mittel
+      - sh

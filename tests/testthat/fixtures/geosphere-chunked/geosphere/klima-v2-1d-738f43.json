@@ -1,0 +1,291 @@
+{
+    "media_type": "application/json",
+    "type": "FeatureCollection",
+    "version": "v1",
+    "timestamps": [
+        "2026-09-07T00:00+00:00",
+        "2026-09-08T00:00+00:00",
+        "2026-09-09T00:00+00:00",
+        "2026-09-10T00:00+00:00",
+        "2026-09-11T00:00+00:00",
+        "2026-09-12T00:00+00:00",
+        "2026-09-13T00:00+00:00"
+    ],
+    "features": [
+        {
+            "type": "Feature",
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    47.78944,
+                    13.00861
+                ]
+            },
+            "properties": {
+                "parameters": {
+                    "ffx": {
+                        "name": "Maximale Windgeschwindigkeit (Spitzenböe)",
+                        "unit": "m/s",
+                        "data": [
+                            7.2,
+                            9.3,
+                            14.4,
+                            6.2,
+                            7.2,
+                            8.2,
+                            8.2
+                        ]
+                    },
+                    "ffx_flag": {
+                        "name": "Qualitätsflag für Maximale Windgeschwindigkeit (Spitzenböe)",
+                        "unit": "code",
+                        "data": [
+                            10,
+                            10,
+                            10,
+                            10,
+                            10,
+                            10,
+                            10
+                        ]
+                    },
+                    "p_mittel": {
+                        "name": "Luftdruck Mittelwert",
+                        "unit": "hPa",
+                        "data": [
+                            970.1,
+                            961.9,
+                            962.3,
+                            966.6,
+                            969.8,
+                            972.3,
+                            970.9
+                        ]
+                    },
+                    "p_mittel_flag": {
+                        "name": "Qualitätsflag für Luftdruck Mittelwert",
+                        "unit": "code",
+                        "data": [
+                            10,
+                            10,
+                            10,
+                            10,
+                            10,
+                            10,
+                            10
+                        ]
+                    },
+                    "rf_mittel": {
+                        "name": "Relative Feuchte Mittelwert",
+                        "unit": "%",
+                        "data": [
+                            61,
+                            49,
+                            87,
+                            76,
+                            82,
+                            67,
+                            70
+                        ]
+                    },
+                    "rf_mittel_flag": {
+                        "name": "Qualitätsflag für Relative Feuchte Mittelwert",
+                        "unit": "code",
+                        "data": [
+                            10,
+                            10,
+                            10,
+                            10,
+                            10,
+                            10,
+                            10
+                        ]
+                    },
+                    "rr": {
+                        "name": "Niederschlag 24h Summe",
+                        "unit": "mm",
+                        "data": [
+                            -1.0,
+                            0.2,
+                            11.2,
+                            5.9,
+                            -1.0,
+                            -1.0,
+                            11.1
+                        ]
+                    },
+                    "rr_flag": {
+                        "name": "Qualitätsflag für Niederschlag 24h Summe",
+                        "unit": "code",
+                        "data": [
+                            10,
+                            10,
+                            10,
+                            10,
+                            10,
+                            10,
+                            10
+                        ]
+                    },
+                    "sh": {
+                        "name": "Gesamtschneehöhe, Schneepegelmessung",
+                        "unit": "cm",
+                        "data": [
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null
+                        ]
+                    },
+                    "sh_flag": {
+                        "name": "Qualitätsflag für Gesamtschneehöhe, Schneepegelmessung",
+                        "unit": "code",
+                        "data": [
+                            10,
+                            10,
+                            10,
+                            10,
+                            10,
+                            10,
+                            10
+                        ]
+                    },
+                    "so_h": {
+                        "name": "Sonnenscheindauer",
+                        "unit": "h",
+                        "data": [
+                            9.6,
+                            11.5,
+                            0.5,
+                            2.5,
+                            3.8,
+                            8.9,
+                            1.0
+                        ]
+                    },
+                    "so_h_flag": {
+                        "name": "Qualitätsflag für Sonnenscheindauer",
+                        "unit": "code",
+                        "data": [
+                            10,
+                            10,
+                            10,
+                            10,
+                            10,
+                            10,
+                            10
+                        ]
+                    },
+                    "tlmax": {
+                        "name": "Lufttemperatur 2m Maximalwert",
+                        "unit": "°C",
+                        "data": [
+                            29.9,
+                            33.5,
+                            25.5,
+                            17.6,
+                            18.5,
+                            22.5,
+                            22.6
+                        ]
+                    },
+                    "tlmax_flag": {
+                        "name": "Qualitätsflag für Lufttemperatur 2m Maximalwert",
+                        "unit": "code",
+                        "data": [
+                            10,
+                            10,
+                            10,
+                            10,
+                            10,
+                            10,
+                            10
+                        ]
+                    },
+                    "tlmin": {
+                        "name": "Lufttemperatur 2m Minimalwert",
+                        "unit": "°C",
+                        "data": [
+                            9.7,
+                            17.8,
+                            14.3,
+                            11.5,
+                            11.2,
+                            11.2,
+                            12.6
+                        ]
+                    },
+                    "tlmin_flag": {
+                        "name": "Qualitätsflag für Lufttemperatur 2m Minimalwert",
+                        "unit": "code",
+                        "data": [
+                            10,
+                            10,
+                            10,
+                            10,
+                            10,
+                            10,
+                            10
+                        ]
+                    },
+                    "tl_mittel": {
+                        "name": "Lufttemperatur 2m Mittelwert",
+                        "unit": "°C",
+                        "data": [
+                            19.8,
+                            25.7,
+                            19.9,
+                            14.6,
+                            14.9,
+                            16.9,
+                            17.6
+                        ]
+                    },
+                    "tl_mittel_flag": {
+                        "name": "Qualitätsflag für Lufttemperatur 2m Mittelwert",
+                        "unit": "code",
+                        "data": [
+                            10,
+                            10,
+                            10,
+                            10,
+                            10,
+                            10,
+                            10
+                        ]
+                    },
+                    "vv_mittel": {
+                        "name": "Windgeschwindigkeit Mittelwert",
+                        "unit": "m/s",
+                        "data": [
+                            1.6,
+                            3.5,
+                            3.3,
+                            2.2,
+                            2.1,
+                            2.8,
+                            3.4
+                        ]
+                    },
+                    "vv_mittel_flag": {
+                        "name": "Qualitätsflag für Windgeschwindigkeit Mittelwert",
+                        "unit": "code",
+                        "data": [
+                            10,
+                            10,
+                            10,
+                            10,
+                            10,
+                            10,
+                            10
+                        ]
+                    }
+                },
+                "station": 6300
+            }
+        }
+    ]
+}
