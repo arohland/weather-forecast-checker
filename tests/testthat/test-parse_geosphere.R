@@ -8,7 +8,7 @@ test_that("a minimal body parses into typed long-format rows", {
     data.frame(
       station_id = c(6300L, 6300L),
       parameter = c("rr", "rr"),
-      reference_time_utc = as.POSIXct(c("2026-09-08", "2026-09-09"), tz = "UTC"),
+      reference_time = as.POSIXct(c("2026-09-08", "2026-09-09"), tz = "UTC"),
       value = c(0.2, -1),
       quality_flag = c(10L, NA),
       unit = c("mm", "mm")

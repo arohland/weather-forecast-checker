@@ -83,7 +83,8 @@ sources:
     #   sunshine_duration    -> so_h       (Open-Meteo unit: seconds)
     #   wind_gusts_10m       -> ffx
     #   wind_speed_10m       -> vv_mittel  (requested in m/s)
-    #   surface_pressure     -> p_mittel   (station level, not sea level)
+    #   surface_pressure     -> p_mittel   (GeoSphere metadata does not state the
+    #                                       pressure level; verify before comparing)
     #   relative_humidity_2m -> rf_mittel
     #   snow_depth           -> sh         (Open-Meteo unit: metres)
     hourly_variables:

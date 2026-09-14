@@ -14,7 +14,7 @@ requested, without their \verb{_flag} companions.}
 }
 \value{
 A data frame with columns \code{station_id} (integer), \code{parameter}
-(character), \code{reference_time_utc} (POSIXct, UTC), \code{value} (double),
+(character), \code{reference_time} (POSIXct, UTC), \code{value} (double),
 \code{quality_flag} (integer) and \code{unit} (character).
 }
 \description{

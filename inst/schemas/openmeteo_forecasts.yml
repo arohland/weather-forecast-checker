@@ -1,0 +1,243 @@
+table: openmeteo_forecasts
+dataset: raw
+description: >
+  Hourly numerical weather forecasts from Open-Meteo for each configured
+  location, in long format: one row per forecast statement, variable and valid
+  hour. A forecast is a statement made at a time about a time, so the same
+  valid hour appears many times: once per daily snapshot, per model run and
+  per lead time. Three sources are stored side by side and distinguished by
+  forecast_source. "forecast" is the current, continuously stitched forecast
+  (no run time published). "previous_runs" holds values archived at fixed lead
+  times of 1-7 days. "single_runs" holds the full output of one model run.
+  Only single_runs report when the forecast was issued; issued_at is NULL for
+  the other sources rather than estimated.
+
+grain:
+  - location_id
+  - model
+  - forecast_source
+  - issued_at
+  - lead_time_days
+  - retrieved_at
+  - valid_time
+  - variable
+
+load_strategy: >
+  Append-only: stored forecasts are never updated or overwritten by valid time,
+  because the history of statements about the same hour is exactly what a
+  skill-versus-lead-time analysis needs. Reloads are idempotent through a
+  scoped delete-and-insert in one transaction that replaces only rows of the
+  same statements. For "forecast", that is the same location, model and UTC
+  retrieval date (one snapshot per day). For "previous_runs", the same location
+  and model within the fetched valid-time range (archived values do not
+  change). For "single_runs", the same location, model and issued_at (one run).
+
+partitioning:
+  column: valid_time
+  granularity: MONTH
+  rationale: >
+    Roughly 17,000 rows per location per day (a 16-day snapshot, four 16-day
+    runs, seven previous-run offsets): megabytes per month, far below the
+    roughly 10 GB per partition from which Google suggests partitioning pays
+    off. The data spans more than 500 dates (from February 2024 plus 16 days
+    ahead), the case for which Google recommends monthly partitioning with
+    clustering on the partitioning column. valid_time is the dimension every
+    skill analysis and observation join filters on; a reload's rows span at
+    most two monthly partitions.
+
+clustering:
+  columns:
+    - location_id
+    - forecast_source
+    - variable
+    - valid_time
+  rationale: >
+    Analyses and reloads filter by location, source and variable. Clustering
+    on valid_time as well orders rows within each monthly partition, as
+    recommended for coarse partitioning. Four is BigQuery's maximum.
+
+columns:
+  - name: location_id
+    type: STRING
+    mode: REQUIRED
+    source: "Configuration: key under `locations` in inst/config/sources.yml."
+    description: >
+      Pipeline identifier of the location (e.g. salzburg-airport); the request
+      uses the location's latitude and longitude.
+
+  - name: model
+    type: STRING
+    mode: REQUIRED
+    source: "Configuration: `sources.openmeteo.model`; sent as the `models` request parameter."
+    description: >
+      Open-Meteo model id. geosphere_seamless is GeoSphere AROME Austria
+      (2.5 km, about 2.5 days) continued with ECMWF IFS.
+
+  - name: forecast_source
+    type: STRING
+    mode: REQUIRED
+    allowed_values:
+      - forecast
+      - previous_runs
+      - single_runs
+    source: "Pipeline: which Open-Meteo API returned the row."
+    description: >
+      forecast = Forecast API (current stitched forecast); previous_runs =
+      Previous Runs API (fixed lead-time offsets); single_runs = Single Runs API
+      (one complete model run).
+
+  - name: issued_at
+    type: TIMESTAMP
+    mode: NULLABLE
+    source: "Request: the `run` parameter of the Single Runs API."
+    description: >
+      Model initialisation time, i.e. when the forecast statement was made.
+      Only known for single_runs; NULL for the other sources, whose APIs do
+      not report it.
+
+  - name: lead_time_days
+    type: INT64
+    mode: NULLABLE
+    source: "API: N in the response column `<variable>_previous_dayN`."
+    description: >
+      Previous Runs offset: the value was predicted N x 24 hours before
+      valid_time. NULL for the other sources.
+
+  - name: lead_time_hours
+    type: INT64
+    mode: NULLABLE
+    source: "Derived: valid_time minus issued_at, in hours."
+    description: >
+      Exact lead time of a single_runs value (0 = the run's first hour). NULL
+      for the other sources, where issued_at is unknown.
+
+  - name: retrieved_at
+    type: TIMESTAMP
+    mode: REQUIRED
+    source: "Pipeline: time the API response was received."
+    description: >
+      When the pipeline fetched the statement. For forecast rows this is the
+      best available indication of when the forecast was current.
+
+  - name: valid_time
+    type: TIMESTAMP
+    mode: REQUIRED
+    source: "API: `hourly.time[]` (Unix seconds, requested with timeformat=unixtime)."
+    description: >
+      Hour the value is valid for. For instantaneous variables it is the
+      moment itself; for aggregated variables it is the end of the preceding
+      hour the value covers (see "Values of variable").
+
+  - name: valid_date_local
+    type: DATE
+    mode: REQUIRED
+    source: "Derived: calendar date of valid_time in the location's time zone (Europe/Vienna)."
+    description: >
+      Local calendar date of valid_time. Aggregating to GeoSphere's daily
+      windows must use valid_time, not this column, because those windows do
+      not follow local days.
+
+  - name: variable
+    type: STRING
+    mode: REQUIRED
+    source: "API: response column name, without any `_previous_dayN` suffix."
+    description: Open-Meteo hourly variable; see "Values of variable" below.
+
+  - name: value
+    type: FLOAT64
+    mode: NULLABLE
+    unit: "see unit column"
+    source: "API: `hourly.<column>[]`."
+    description: >
+      Forecast value as delivered. NULL where the API has none; for example,
+      the Previous Runs archive has no lead-time values for snow_depth and
+      gusts only at lead day 1.
+
+  - name: unit
+    type: STRING
+    mode: REQUIRED
+    source: "API: `hourly_units.<column>`."
+    description: Unit of value, as reported by the API.
+
+  - name: _ingested_at
+    type: TIMESTAMP
+    mode: REQUIRED
+    source: "Pipeline: time the load started."
+    description: When this row was written to BigQuery.
+
+  - name: _source_url
+    type: STRING
+    mode: REQUIRED
+    source: "Pipeline: the exact request URL."
+    description: API request that returned this row's payload.
+
+  - name: _payload_sha256
+    type: STRING
+    mode: REQUIRED
+    pattern: "^[0-9a-f]{64}$"
+    source: "Pipeline: SHA-256 of the unmodified response body."
+    description: >
+      Hex SHA-256 of the raw response landed in GCS before parsing; identifies
+      the exact payload a row was parsed from, for replay and auditing.
+
+  - name: _pipeline_run_id
+    type: STRING
+    mode: REQUIRED
+    source: "Pipeline: identifier of the ingestion run."
+    description: >
+      Execution that loaded the row; also the file name of the raw payload in
+      GCS (`raw/source=<source>/dt=<date>/<run_id>.json.gz`).
+
+  - name: _pipeline_version
+    type: STRING
+    mode: REQUIRED
+    source: "Pipeline: wxpipe package version plus git commit."
+    description: Code version that produced the row (e.g. 0.1.0+0123abc).
+
+value_catalogs:
+  variable:
+    - value: temperature_2m
+      unit: "°C"
+      description: Air temperature at 2 m above ground; instantaneous value at valid_time.
+      source_text: "Open-Meteo hourly docs: valid time Instant."
+    - value: precipitation
+      unit: mm
+      description: >
+        Total precipitation (rain, showers, snow) summed over the hour ending at
+        valid_time.
+      source_text: "Open-Meteo hourly docs: valid time Preceding hour sum."
+    - value: sunshine_duration
+      unit: s
+      description: >
+        Seconds of sunshine (WMO definition: direct normal irradiance above 120
+        W/m²). NOT CONFIRMED: the hourly documentation table does not list this
+        variable; by analogy with its 15-minutely definition (sum over the
+        preceding 15 minutes) the hourly value is taken to cover the hour ending
+        at valid_time. Verify before aggregating to GeoSphere's so_h window.
+      source_text: "Open-Meteo docs: 15-minutely table Preceding 15 minutes sum; daily table gives the WMO definition. Not in the hourly table."
+    - value: wind_gusts_10m
+      unit: m/s
+      description: >
+        Maximum wind gust at 10 m during the hour ending at valid_time
+        (requested in m/s).
+      source_text: "Open-Meteo hourly docs: valid time Preceding hour max."
+    - value: wind_speed_10m
+      unit: m/s
+      description: Wind speed at 10 m; instantaneous value (requested in m/s).
+      source_text: "Open-Meteo hourly docs: valid time Instant."
+    - value: surface_pressure
+      unit: hPa
+      description: >
+        Atmospheric pressure at the model surface (not reduced to sea level);
+        instantaneous value.
+      source_text: "Open-Meteo hourly docs: valid time Instant."
+    - value: relative_humidity_2m
+      unit: "%"
+      description: Relative humidity at 2 m above ground; instantaneous value.
+      source_text: "Open-Meteo hourly docs: valid time Instant."
+    - value: snow_depth
+      unit: m
+      description: >
+        Snow depth on the ground in metres (GeoSphere's sh is in centimetres);
+        instantaneous value.
+      source_text: "Open-Meteo hourly docs: valid time Instant, unit meters."

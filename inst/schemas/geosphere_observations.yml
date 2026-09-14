@@ -1,0 +1,224 @@
+table: geosphere_observations
+dataset: raw
+description: >
+  Daily station observations from the GeoSphere Austria Data Hub dataset
+  klima-v2-1d, in long format: one row per location, station, parameter and
+  day. Values, units and quality flags are stored exactly as the API delivers
+  them. IMPORTANT: GeoSphere's "day" is not the local calendar day, and it
+  differs per parameter (e.g. temperature extremes run 18:10 UTC to 18:00 UTC,
+  precipitation 06:01 UTC to 06:00 UTC of the following day). The window of
+  each parameter is documented in the value catalogue below. Compare with
+  forecasts only after aggregating the forecast over the same window.
+
+grain:
+  - location_id
+  - station_id
+  - parameter
+  - reference_time
+
+load_strategy: >
+  Idempotent replace. For each fetched location, station and date range, the
+  loader deletes the existing rows in that range and inserts the new rows in
+  one transaction, so re-running a range never duplicates rows. The daily run
+  re-fetches the trailing `revision_window_days` (see inst/config/sources.yml),
+  which picks up values GeoSphere revises after first publication (quality
+  flags move from automatically to manually checked).
+
+partitioning:
+  column: reference_time
+  granularity: MONTH
+  rationale: >
+    About ten rows per station per day, but the station record reaches back to
+    1939. Daily partitions would be tiny, and a full backfill would exceed
+    BigQuery's limit of 10,000 partitions per table. Google recommends monthly
+    or yearly partitioning when a table has little data per day over a wide
+    date range, combined with clustering on the partitioning column. A
+    revision-window reload still touches only one or two monthly partitions.
+
+clustering:
+  columns:
+    - location_id
+    - parameter
+    - reference_time
+  rationale: >
+    Analyses and reloads filter by location and parameter; clustering on
+    reference_time as well orders rows within each monthly partition, as
+    recommended for coarse partitioning.
+
+columns:
+  - name: location_id
+    type: STRING
+    mode: REQUIRED
+    source: "Configuration: key under `locations` in inst/config/sources.yml."
+    description: >
+      Pipeline identifier of the location (e.g. salzburg-airport). Joins
+      observations to forecasts for the same place.
+
+  - name: station_id
+    type: INT64
+    mode: REQUIRED
+    source: "API: `features[].properties.station`."
+    description: >
+      GeoSphere climate station id (6300 = Salzburg Flughafen, the physical
+      station; GeoSphere also publishes a homogenised composite as id 131,
+      which is not used).
+
+  - name: resource_id
+    type: STRING
+    mode: REQUIRED
+    source: "Configuration: `sources.geosphere.resource_id`; the API path segment."
+    description: GeoSphere dataset the values come from (klima-v2-1d).
+
+  - name: parameter
+    type: STRING
+    mode: REQUIRED
+    source: "API: key of `features[].properties.parameters`."
+    description: >
+      GeoSphere parameter name. Each parameter has its own unit and daily
+      aggregation window; see "Values of parameter" below.
+
+  - name: reference_time
+    type: TIMESTAMP
+    mode: REQUIRED
+    source: "API: `timestamps[]` (e.g. 2026-09-08T00:00+00:00)."
+    description: >
+      The timestamp GeoSphere attaches to the daily value: always 00:00 UTC of
+      the day label. It is a label, not the measurement period, which depends
+      on the parameter.
+
+  - name: reference_date_local
+    type: DATE
+    mode: REQUIRED
+    source: "Derived: calendar date of reference_time in the location's time zone (Europe/Vienna)."
+    description: >
+      Local calendar date of the label. Because labels are 00:00 UTC (01:00 or
+      02:00 in Vienna), this equals the UTC date; it does NOT mean the value
+      covers that local day.
+
+  - name: value
+    type: FLOAT64
+    mode: NULLABLE
+    unit: "see unit column"
+    source: "API: `features[].properties.parameters.<parameter>.data[]`."
+    description: >
+      Value as delivered, including documented sentinel codes (e.g. rr = -1
+      means no precipitation, sh = -1 means no snow). NULL when GeoSphere has
+      no value yet (typically the current day) or none at all.
+
+  - name: quality_flag
+    type: INT64
+    mode: NULLABLE
+    source: "API: `features[].properties.parameters.<parameter>_flag.data[]` (code list q21)."
+    description: >
+      GeoSphere quality code: 0 unchecked; 10 automatically checked; 11
+      automatically checked, changed; 12 automatically checked, original; 20
+      manually checked, unknown; 21 manually checked, changed; 22 manually
+      checked, original. NULL means undefined.
+
+  - name: unit
+    type: STRING
+    mode: REQUIRED
+    source: "API: `features[].properties.parameters.<parameter>.unit`."
+    description: Unit of value, as reported by the API for this parameter.
+
+  - name: _ingested_at
+    type: TIMESTAMP
+    mode: REQUIRED
+    source: "Pipeline: time the load started."
+    description: When this row was written to BigQuery.
+
+  - name: _source_url
+    type: STRING
+    mode: REQUIRED
+    source: "Pipeline: the exact request URL."
+    description: API request that returned this row's payload.
+
+  - name: _payload_sha256
+    type: STRING
+    mode: REQUIRED
+    pattern: "^[0-9a-f]{64}$"
+    source: "Pipeline: SHA-256 of the unmodified response body."
+    description: >
+      Hex SHA-256 of the raw response landed in GCS before parsing; identifies
+      the exact payload a row was parsed from, for replay and auditing.
+
+  - name: _pipeline_run_id
+    type: STRING
+    mode: REQUIRED
+    source: "Pipeline: identifier of the ingestion run."
+    description: >
+      Execution that loaded the row; also the file name of the raw payload in
+      GCS (`raw/source=<source>/dt=<date>/<run_id>.json.gz`).
+
+  - name: _pipeline_version
+    type: STRING
+    mode: REQUIRED
+    source: "Pipeline: wxpipe package version plus git commit."
+    description: Code version that produced the row (e.g. 0.1.0+0123abc).
+
+value_catalogs:
+  parameter:
+    - value: tlmax
+      unit: "°C"
+      description: >
+        Daily maximum air temperature at 2 m: maximum of 10-minute values from
+        18:10 UTC on the previous day to 18:00 UTC on the labelled day.
+      source_text: "Lufttemperatur in 2m Höhe, Maximum der Zehnminutenwerte (tlmax) von 18:10 UTC Vortag - 18:00 UTC aktueller Tag"
+    - value: tlmin
+      unit: "°C"
+      description: >
+        Daily minimum air temperature at 2 m: minimum of 10-minute values from
+        18:10 UTC on the previous day to 18:00 UTC on the labelled day.
+      source_text: "Lufttemperatur in 2m Höhe, Minimum der Zehnminutenwerte (tlmin) von 18:10 UTC Vortag - 18:00 UTC aktueller Tag"
+    - value: tl_mittel
+      unit: "°C"
+      description: >
+        Daily mean air temperature at 2 m, defined as (tlmax + tlmin) / 2, not
+        as the mean of all readings.
+      source_text: "Lufttemperatur in 2m Höhe, Mittelwert berechnet aus (tlmax + tlmin)/2"
+    - value: rr
+      unit: mm
+      description: >
+        24-hour precipitation total of 1-minute values from 06:01 UTC on the
+        labelled day to 06:00 UTC on the following day. Sentinels: -1 = no
+        precipitation, 0 = less than 0.1 mm.
+      source_text: "Niederschlag, 24-Stundensumme der Einminutenwerte von 06:01 UTC bis 06:00 UTC des Folgetags, -1=kein Niederschlag, 0=weniger als 1/10 mm"
+    - value: so_h
+      unit: h
+      description: >
+        Sunshine duration: sum of hourly values over 0-24 h mean local time
+        (MOZ), which GeoSphere states as 23:00 UTC on the previous day to 23:00
+        UTC on the labelled day.
+      source_text: "Sonnenscheindauer, Summe aus den Stundenwerten 0-24 Uhr MOZ (23 Vortag - 23 Tag UTC)"
+    - value: ffx
+      unit: m/s
+      description: >
+        Peak gust: daily maximum wind speed from hourly values over 0-24 h
+        mean local time (MOZ), i.e. 23:00 UTC on the previous day to 23:00 UTC
+        on the labelled day.
+      source_text: "Windgeschwindigkeit, Tagesmaximum aus den Stundenwerten 0-24 Uhr MOZ (23 Vortag - 23 Tag UTC)"
+    - value: vv_mittel
+      unit: m/s
+      description: >
+        Daily mean wind speed: mean of the three observation terms at 06, 13
+        and 18 UTC.
+      source_text: "Windgeschwindigkeit, Tagesmittel aus den Beobachtungsterminen I,II,III (06,13,18 UTC)"
+    - value: p_mittel
+      unit: hPa
+      description: >
+        Daily mean air pressure: mean of the observation terms at 06, 13 and 18
+        UTC. The metadata does not state whether this is station-level or
+        reduced pressure.
+      source_text: "Luftdruck, Tagesmittel aus den Beobachtungsterminen I,II,III (06,13,18 UTC)"
+    - value: rf_mittel
+      unit: "%"
+      description: >
+        Daily mean relative humidity: mean of the observation terms at 06, 13
+        and 18 UTC.
+      source_text: "Relative Feuchte, Tagesmittel aus den Beobachtungsterminen I,II,III (06,13,18 UTC)"
+    - value: sh
+      unit: cm
+      description: >
+        Total snow depth from the automatic snow gauge (offset-corrected) at the
+        06 UTC observation term. Sentinel: -1 = no snow.
+      source_text: "Gesamtschneehöhe, aus automatischer Schneepegelmessung, Offset korrigiert, zum Beobachtungstermin I (06 UTC), -1=kein Schnee"

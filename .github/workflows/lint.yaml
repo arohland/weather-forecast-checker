@@ -36,6 +36,9 @@ jobs:
           print(lints)
           if (length(lints) > 0L) quit(status = 1L)
 
+      - name: Data dictionary matches inst/schemas
+        run: Rscript scripts/generate_data_dictionary.R --check
+
       - name: styler (fails if any file would be reformatted)
         shell: Rscript {0}
         run: |

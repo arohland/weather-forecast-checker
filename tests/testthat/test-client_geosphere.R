@@ -53,14 +53,14 @@ test_that("a recent daily window is fetched and parsed from recorded responses",
   expect_identical(unique(obs$unit[obs$parameter == "rr"]), "mm")
 
   at <- function(parameter, date) {
-    obs$value[obs$parameter == parameter & obs$reference_time_utc == as.POSIXct(date, tz = "UTC")]
+    obs$value[obs$parameter == parameter & obs$reference_time == as.POSIXct(date, tz = "UTC")]
   }
   expect_equal(at("tlmax", "2026-09-08"), 33.5)
   expect_equal(at("rr", "2026-09-09"), 11.2)
   # Documented sentinel: -1 means "no precipitation"; kept as delivered.
   expect_equal(at("rr", "2026-09-11"), -1)
   # The current day is not published yet: its rows exist with NA values.
-  today <- obs[obs$reference_time_utc == as.POSIXct("2026-09-14", tz = "UTC"), ]
+  today <- obs[obs$reference_time == as.POSIXct("2026-09-14", tz = "UTC"), ]
   expect_identical(nrow(today), 10L)
   expect_true(all(is.na(today$value)))
 })
@@ -107,7 +107,7 @@ test_that("a range above the size limit is fetched in contiguous chunks", {
     parse_geosphere_station(r$body, source_config$parameters)
   }))
   expect_identical(nrow(obs), 10L * 14L)
-  expect_false(anyDuplicated(obs[c("parameter", "reference_time_utc")]) > 0L)
+  expect_false(anyDuplicated(obs[c("parameter", "reference_time")]) > 0L)
 })
 
 # Chunk planning -----------------------------------------------------------------

@@ -9,6 +9,13 @@ is_unique_names <- function(x) {
   is.character(x) && length(x) > 0L && !anyNA(x) && !anyDuplicated(x)
 }
 
+# Escapes braces in already-formatted text before it is embedded in another
+# cli message, so data values such as "{x}" are shown literally rather than
+# interpolated a second time.
+cli_escape <- function(x) {
+  gsub("([{}])", "\\1\\1", x)
+}
+
 check_single_date <- function(x, arg, call = rlang::caller_env()) {
   if (!inherits(x, "Date") || length(x) != 1L || is.na(x)) {
     cli::cli_abort(

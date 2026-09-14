@@ -29,7 +29,7 @@
 #'   requested, without their `_flag` companions.
 #'
 #' @return A data frame with columns `station_id` (integer), `parameter`
-#'   (character), `reference_time_utc` (POSIXct, UTC), `value` (double),
+#'   (character), `reference_time` (POSIXct, UTC), `value` (double),
 #'   `quality_flag` (integer) and `unit` (character).
 #' @export
 parse_geosphere_station <- function(body, parameters) {
@@ -152,7 +152,7 @@ parse_geosphere_feature <- function(feature, timestamps, parameters) {
     data.frame(
       station_id = rep(station, n),
       parameter = rep(parameter, n),
-      reference_time_utc = timestamps,
+      reference_time = timestamps,
       value = values,
       quality_flag = as.integer(flags),
       unit = rep(unit, n)
