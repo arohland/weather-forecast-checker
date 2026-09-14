@@ -91,6 +91,25 @@ test_that("validation rejects bad values", {
   }
 })
 
+test_that("Open-Meteo settings are validated", {
+  set_openmeteo <- function(config, api, key, value) {
+    config$sources$openmeteo[[api]][[key]] <- value
+    config
+  }
+  cases <- list(
+    set_openmeteo(valid_config(), "previous_runs", "lead_days", c(1L, 8L)),
+    set_openmeteo(valid_config(), "previous_runs", "archive_start", "2024-13-01"),
+    set_openmeteo(valid_config(), "single_runs", "run_hours_utc", c(0L, 24L)),
+    set_openmeteo(valid_config(), "single_runs", "forecast_days", 17L),
+    set_openmeteo(valid_config(), "forecast", "base_url", "http://api.open-meteo.com/v1/forecast"),
+    set_openmeteo(valid_config(), "limits", "daily_call_budget", NULL),
+    set_openmeteo(valid_config(), "forecast", "past_days", 3L)
+  )
+  for (config in cases) {
+    expect_error(read_sources_config(write_config(config)), class = "wxpipe_error_config")
+  }
+})
+
 test_that("get_location() lists the configured ids for an unknown location", {
   config <- read_sources_config()
   expect_error(

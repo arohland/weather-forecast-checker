@@ -66,3 +66,71 @@ sources:
       - p_mittel
       - rf_mittel
       - sh
+
+  openmeteo:
+    # Forecasts are requested for each location's latitude/longitude, so they
+    # refer to the same point as the observations.
+    #
+    # Model decision (2026-09-14): store only GeoSphere's own seamless blend.
+    # "geosphere_seamless" is GeoSphere AROME Austria (2.5 km, ~2.5-day
+    # horizon) continued with ECMWF IFS. Pure AROME fills only lead day 1 in
+    # the Previous Runs archive, so it cannot support a 1-7 day skill analysis.
+    model: "geosphere_seamless"
+    # Hourly values. Daily values matching GeoSphere's aggregation windows are
+    # derived downstream (dbt). Closest GeoSphere counterparts:
+    #   temperature_2m       -> tlmax / tlmin / tl_mittel
+    #   precipitation        -> rr
+    #   sunshine_duration    -> so_h       (Open-Meteo unit: seconds)
+    #   wind_gusts_10m       -> ffx
+    #   wind_speed_10m       -> vv_mittel  (requested in m/s)
+    #   surface_pressure     -> p_mittel   (station level, not sea level)
+    #   relative_humidity_2m -> rf_mittel
+    #   snow_depth           -> sh         (Open-Meteo unit: metres)
+    hourly_variables:
+      - temperature_2m
+      - precipitation
+      - sunshine_duration
+      - wind_gusts_10m
+      - wind_speed_10m
+      - surface_pressure
+      - relative_humidity_2m
+      - snow_depth
+    # Free tier (https://open-meteo.com/en/terms and /en/pricing, read
+    # 2026-09-14): non-commercial, 600 calls/min, 5,000/h, 10,000/day. A
+    # request with more than `variables_per_call` variables or covering more
+    # than `days_per_call` days counts as several (fractional) calls.
+    limits:
+      # Our own politeness throttle, far below the 600/min allowance.
+      requests_per_minute: 30
+      # Per fetch: planned requests costing more than this abort up front.
+      daily_call_budget: 2000
+      variables_per_call: 10
+      days_per_call: 14
+    forecast:
+      base_url: "https://api.open-meteo.com/v1/forecast"
+      # API maximum. The seamless blend fills all 384 hours except the last
+      # few (probed 2026-09-14). Cost: 8 variables x 16 days = 1.14 calls.
+      forecast_days: 16
+    previous_runs:
+      base_url: "https://previous-runs-api.open-meteo.com/v1/forecast"
+      lead_days: [1, 2, 3, 4, 5, 6, 7]
+      # First non-null geosphere_seamless value at this location (probed
+      # 2026-09-14). Some variables start later: sunshine_duration,
+      # wind_gusts_10m, relative_humidity_2m and snow_depth had no
+      # previous_day1 values in early February 2024. wind_gusts_10m is only
+      # archived at lead day 1 and snow_depth at no lead day. Those rows are
+      # kept with NULL values rather than dropped.
+      archive_start: "2024-02-04"
+      # 56 series (8 variables x 7 offsets) cost 5.6 calls per request for up
+      # to 14 days; longer chunks would multiply the cost, shorter ones only
+      # add requests.
+      chunk_days: 14
+    single_runs:
+      base_url: "https://single-runs-api.open-meteo.com/v1/forecast"
+      # The seamless blend follows ECMWF IFS cycles: 00/06/12/18 UTC exist,
+      # 03 UTC returned "model run is not available" (probed 2026-09-14).
+      run_hours_utc: [0, 6, 12, 18]
+      # The 2026-04-02T00:00 run exists; 2026-04-01T18:00 does not.
+      archive_start: "2026-04-02"
+      # Full horizon of each run: 384 hours.
+      forecast_days: 16

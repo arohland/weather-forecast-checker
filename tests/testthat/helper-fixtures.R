@@ -6,6 +6,8 @@
 # and replaces the directory) happens only when explicitly requested:
 #
 #   WXPIPE_RECORD_FIXTURES=true Rscript -e 'devtools::test(filter = "client_geosphere")'
+utc_time <- function(x) as.POSIXct(x, tz = "UTC")
+
 with_fixtures <- function(dir, code) {
   path <- testthat::test_path(dir)
   recording <- identical(Sys.getenv("WXPIPE_RECORD_FIXTURES"), "true")

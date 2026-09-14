@@ -87,8 +87,9 @@ validate_sources_config <- function(config, path = "<in-memory config>") {
   if (!is.list(sources) || is.null(names(sources))) {
     abort_config("must be a mapping of source names", sources, "sources", path)
   }
-  check_config_keys(sources, "geosphere", "sources", path)
+  check_config_keys(sources, c("geosphere", "openmeteo"), "sources", path)
   validate_geosphere_source(sources$geosphere, "sources.geosphere", path)
+  validate_openmeteo_source(sources$openmeteo, "sources.openmeteo", path)
 
   config
 }
@@ -135,13 +136,7 @@ validate_geosphere_source <- function(source, field, path) {
     field, path
   )
 
-  check_config_string(source$base_url, paste0(field, ".base_url"), path)
-  if (!grepl("^https://[^ ]+[^/]$", source$base_url)) {
-    abort_config(
-      "must be an https URL without a trailing slash",
-      source$base_url, paste0(field, ".base_url"), path
-    )
-  }
+  check_config_https_url(source$base_url, paste0(field, ".base_url"), path)
   check_config_string(source$resource_id, paste0(field, ".resource_id"), path)
   check_config_string(source$endpoint, paste0(field, ".endpoint"), path)
 
@@ -167,15 +162,7 @@ validate_geosphere_source <- function(source, field, path) {
 
   params <- source$parameters
   params_field <- paste0(field, ".parameters")
-  if (!is.character(params) || length(params) == 0L || anyNA(params)) {
-    abort_config("must be a non-empty list of parameter names", params, params_field, path)
-  }
-  if (anyDuplicated(params)) {
-    abort_config("must not contain duplicates", params[duplicated(params)], params_field, path)
-  }
-  if (!all(grepl("^[a-z0-9_]+$", params))) {
-    abort_config("must be lower-case parameter names", params, params_field, path)
-  }
+  check_config_names(params, params_field, path)
   if (any(endsWith(params, "_flag"))) {
     abort_config(
       "must not list *_flag parameters (flags are fetched automatically)",
@@ -185,7 +172,111 @@ validate_geosphere_source <- function(source, field, path) {
   invisible(source)
 }
 
+validate_openmeteo_source <- function(source, field, path) {
+  sub_field <- function(...) paste(c(field, ...), collapse = ".")
+  check_config_mapping(source, field, path)
+  check_config_keys(
+    source,
+    c("model", "hourly_variables", "limits", "forecast", "previous_runs", "single_runs"),
+    field, path
+  )
+  check_config_string(source$model, sub_field("model"), path)
+  check_config_names(source$hourly_variables, sub_field("hourly_variables"), path)
+
+  limit_keys <- c("requests_per_minute", "daily_call_budget", "variables_per_call", "days_per_call")
+  check_config_mapping(source$limits, sub_field("limits"), path)
+  check_config_keys(source$limits, limit_keys, sub_field("limits"), path)
+  for (key in limit_keys) {
+    check_config_whole(source$limits[[key]], sub_field("limits", key), path, 1)
+  }
+
+  api_keys <- list(
+    forecast = c("base_url", "forecast_days"),
+    previous_runs = c("base_url", "lead_days", "archive_start", "chunk_days"),
+    single_runs = c("base_url", "run_hours_utc", "archive_start", "forecast_days")
+  )
+  for (api in names(api_keys)) {
+    check_config_mapping(source[[api]], sub_field(api), path)
+    check_config_keys(source[[api]], api_keys[[api]], sub_field(api), path)
+    check_config_https_url(source[[api]]$base_url, sub_field(api, "base_url"), path)
+  }
+
+  forecast <- source$forecast
+  previous <- source$previous_runs
+  single <- source$single_runs
+  # 16 days is the Open-Meteo maximum; 7 is the longest Previous Runs offset.
+  check_config_whole_range(
+    forecast$forecast_days, sub_field("forecast", "forecast_days"), path, 1, 16
+  )
+  check_config_whole_set(previous$lead_days, sub_field("previous_runs", "lead_days"), path, 1, 7)
+  check_config_date(previous$archive_start, sub_field("previous_runs", "archive_start"), path)
+  check_config_whole(previous$chunk_days, sub_field("previous_runs", "chunk_days"), path, 1)
+  check_config_whole_set(
+    single$run_hours_utc, sub_field("single_runs", "run_hours_utc"), path, 0, 23
+  )
+  check_config_date(single$archive_start, sub_field("single_runs", "archive_start"), path)
+  check_config_whole_range(
+    single$forecast_days, sub_field("single_runs", "forecast_days"), path, 1, 16
+  )
+  invisible(source)
+}
+
 # Small checkers -------------------------------------------------------------
+
+check_config_mapping <- function(x, field, path) {
+  if (!is.list(x) || is.null(names(x))) {
+    abort_config("must be a mapping", x, field, path)
+  }
+  invisible(x)
+}
+
+check_config_https_url <- function(x, field, path) {
+  check_config_string(x, field, path)
+  if (!grepl("^https://[^ ]+[^/]$", x)) {
+    abort_config("must be an https URL without a trailing slash", x, field, path)
+  }
+  invisible(x)
+}
+
+check_config_names <- function(x, field, path) {
+  if (!is.character(x) || length(x) == 0L || anyNA(x)) {
+    abort_config("must be a non-empty list of names", x, field, path)
+  }
+  if (anyDuplicated(x)) {
+    abort_config("must not contain duplicates", x[duplicated(x)], field, path)
+  }
+  if (!all(grepl("^[a-z0-9_]+$", x))) {
+    abort_config("must be lower-case names", x, field, path)
+  }
+  invisible(x)
+}
+
+check_config_whole_range <- function(x, field, path, min, max) {
+  check_config_whole(x, field, path, min)
+  if (x > max) {
+    abort_config(paste0("must be at most ", max), x, field, path)
+  }
+  invisible(x)
+}
+
+check_config_whole_set <- function(x, field, path, min, max) {
+  all_whole <- is.numeric(x) && length(x) > 0L && all(vapply(x, is_whole_number, logical(1)))
+  if (!all_whole || anyDuplicated(x) || any(x < min) || any(x > max)) {
+    abort_config(
+      paste0("must be unique whole numbers between ", min, " and ", max),
+      x, field, path
+    )
+  }
+  invisible(x)
+}
+
+check_config_date <- function(x, field, path) {
+  is_date <- rlang::is_string(x) && grepl("^[0-9]{4}-[0-9]{2}-[0-9]{2}$", x)
+  if (!is_date || is.na(as.Date(x, optional = TRUE))) {
+    abort_config("must be a date string in YYYY-MM-DD format", x, field, path)
+  }
+  invisible(x)
+}
 
 check_config_keys <- function(x, allowed, field, path) {
   unknown <- setdiff(names(x), allowed)

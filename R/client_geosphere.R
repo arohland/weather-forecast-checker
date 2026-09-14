@@ -130,14 +130,7 @@ geosphere_request_size <- function(start_date, end_date, n_series, n_stations = 
 #'   n_series = 20, max_values = 1e6
 #' )
 plan_geosphere_chunks <- function(start_date, end_date, n_series, n_stations = 1L, max_values) {
-  check_single_date(start_date, "start_date")
-  check_single_date(end_date, "end_date")
-  if (start_date > end_date) {
-    cli::cli_abort(
-      "{.arg start_date} ({start_date}) must not be after {.arg end_date} ({end_date}).",
-      class = "wxpipe_error_input"
-    )
-  }
+  check_date_range(start_date, end_date)
   counts <- list(n_series = n_series, n_stations = n_stations, max_values = max_values)
   for (arg in names(counts)) {
     value <- counts[[arg]]
@@ -161,18 +154,5 @@ plan_geosphere_chunks <- function(start_date, end_date, n_series, n_stations = 1
     )
   }
 
-  starts <- seq(start_date, end_date, by = days_per_chunk)
-  ends <- pmin(starts + (days_per_chunk - 1), end_date)
-  data.frame(start_date = starts, end_date = ends)
-}
-
-check_single_date <- function(x, arg) {
-  if (!inherits(x, "Date") || length(x) != 1L || is.na(x)) {
-    cli::cli_abort(
-      "{.arg {arg}} must be a single non-missing Date, not {.obj_type_friendly {x}}.",
-      class = "wxpipe_error_input",
-      call = rlang::caller_env()
-    )
-  }
-  invisible(x)
+  split_date_range(start_date, end_date, days_per_chunk)
 }

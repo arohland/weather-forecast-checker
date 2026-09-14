@@ -162,25 +162,5 @@ parse_geosphere_feature <- function(feature, timestamps, parameters) {
 }
 
 series_to_double <- function(entry, name, station, n) {
-  data <- entry$data
-  if (!is.list(data) || length(data) != n) {
-    cli::cli_abort(
-      c(
-        "Series {.field {name}} for station {station} does not line up with the timestamps.",
-        "x" = "It has {length(data)} value{?s}; there are {n} timestamp{?s}."
-      ),
-      class = "wxpipe_error_parse"
-    )
-  }
-  ok <- vapply(data, function(v) is.null(v) || (is.numeric(v) && length(v) == 1L), logical(1))
-  if (!all(ok)) {
-    cli::cli_abort(
-      c(
-        "Series {.field {name}} for station {station} has a non-numeric value.",
-        "x" = "First offending position: {which(!ok)[1]}."
-      ),
-      class = "wxpipe_error_parse"
-    )
-  }
-  vapply(data, function(v) if (is.null(v)) NA_real_ else as.double(v), double(1))
+  json_number_series(entry$data, paste0(name, " (station ", station, ")"), n)
 }
