@@ -27,6 +27,13 @@ ENV RENV_CONFIG_PPM_ENABLED=TRUE \
     RENV_PATHS_CACHE=/opt/renv-cache \
     WXPIPE_LIBRARY=/opt/wxpipe/library
 
+# renv loads every package right after installing it, so the shared libraries
+# that binary packages link against must already be present here, not only in
+# the final image: libuv for fs.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libuv1t64 \
+    && rm -rf /var/lib/apt/lists/*
+
 # Restore packages first, in their own layer, so code changes do not trigger
 # a re-install. The renv bootstrap files install the exact renv version
 # recorded in the lockfile (pattern from renv's Docker vignette).
