@@ -1,0 +1,95 @@
+# terraform fmt + validate on every change to the infrastructure (or to the
+# schema files the tables are built from), and a read-only plan on pull
+# requests. Applying stays manual.
+#
+# The plan job runs only when the repository is configured (Settings > Secrets
+# and variables > Actions > Variables, values from `terraform output`):
+#   GCP_WORKLOAD_IDENTITY_PROVIDER, GCP_CI_PLAN_SERVICE_ACCOUNT, TF_STATE_BUCKET,
+#   GCP_PROJECT_ID, GCP_REGION, BIGQUERY_LOCATION
+name: terraform
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "terraform/**"
+      - "inst/schemas/**"
+      - .github/workflows/terraform.yaml
+  pull_request:
+    paths:
+      - "terraform/**"
+      - "inst/schemas/**"
+      - .github/workflows/terraform.yaml
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: terraform
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: 1.16.2
+
+      - name: terraform fmt
+        run: terraform fmt -check -recursive -diff
+
+      - name: terraform init (without backend)
+        run: terraform init -backend=false -input=false
+
+      - name: terraform validate
+        run: terraform validate
+
+  plan:
+    needs: validate
+    # Pull requests from forks get no OIDC token, and an unconfigured
+    # repository has nothing to plan against.
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      vars.GCP_WORKLOAD_IDENTITY_PROVIDER != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        working-directory: terraform
+    env:
+      TF_VAR_project_id: ${{ vars.GCP_PROJECT_ID }}
+      TF_VAR_region: ${{ vars.GCP_REGION }}
+      TF_VAR_bigquery_location: ${{ vars.BIGQUERY_LOCATION }}
+      TF_VAR_github_repository: ${{ github.repository }}
+      TF_VAR_state_bucket: ${{ vars.TF_STATE_BUCKET }}
+      TF_VAR_job_image: ${{ vars.JOB_IMAGE != '' && vars.JOB_IMAGE || null }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_PLAN_SERVICE_ACCOUNT }}
+
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: 1.16.2
+          terraform_wrapper: false
+
+      - name: terraform init
+        run: terraform init -input=false -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}"
+
+      - name: terraform plan (read-only, no state lock)
+        run: |
+          terraform plan -input=false -lock=false -no-color | tee plan.txt
+          {
+            echo "### terraform plan"
+            echo '```'
+            cat plan.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
