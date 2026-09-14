@@ -27,3 +27,7 @@ pkgdown/site/
 
 # Coverage artefacts
 cobertura.xml
+
+# Snippets testthat saves for failing tests
+tests/testthat/_problems/
+tests/testthat/testthat-problems.rds

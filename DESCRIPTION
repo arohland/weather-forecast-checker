@@ -13,9 +13,13 @@ URL: https://github.com/andreasrohland/weather-forecast-checker
 Depends:
     R (>= 4.5.0)
 Imports:
+    bigrquery,
     cli,
+    gargle,
+    googleCloudStorageR,
     httr2,
     jsonlite,
+    openssl,
     rlang,
     stats,
     utils,
