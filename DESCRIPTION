@@ -20,6 +20,7 @@ Imports:
     httr2,
     jsonlite,
     openssl,
+    optparse,
     rlang,
     stats,
     utils,
