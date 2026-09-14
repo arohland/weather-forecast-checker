@@ -31,10 +31,11 @@ jobs:
 
       # covr is measurement tooling, not code under test, so it is not pinned
       # in renv.lock (which also feeds the production image). Install it on
-      # top of the restored library.
+      # top of the restored library. xml2 is only suggested by covr but needed
+      # by covr::to_cobertura().
       - name: Install covr
         shell: Rscript {0}
-        run: renv::install("covr", prompt = FALSE)
+        run: renv::install(c("covr", "xml2"), prompt = FALSE)
 
       - name: testthat
         shell: Rscript {0}
