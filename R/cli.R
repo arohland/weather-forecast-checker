@@ -55,6 +55,13 @@ run_cli <- function(args = commandArgs(trailingOnly = TRUE), now = Sys.time(),
     mode = options$mode, sources = options$sources, locations = options$locations,
     start_date = options$start_date, end_date = options$end_date, dry_run = options$dry_run
   )
+  if (setup$plan$skipped_single_runs > 0L) {
+    log_event(
+      "WARNING", "Open-Meteo single runs before the archive start are not available; skipped",
+      skipped_runs = setup$plan$skipped_single_runs,
+      archive_start = setup$config$sources$openmeteo$single_runs$archive_start
+    )
+  }
 
   backend <- NULL
   if (!options$dry_run) {

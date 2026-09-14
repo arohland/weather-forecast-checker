@@ -18,16 +18,20 @@
 #'   on every configured cycle.
 #'
 #' Backfills use `start_date`..`end_date` for every selected source (the
-#' current forecast snapshot cannot be backfilled). A range starting before an
-#' Open-Meteo archive start is refused rather than silently shortened.
+#' current forecast snapshot cannot be backfilled). A range starting before the
+#' Previous Runs archive is refused. The Single Runs archive starts much later
+#' (see `inst/config/sources.yml`), so model runs before its start are left out
+#' of the plan and counted in `skipped_single_runs`, which the CLI logs as a
+#' warning; this keeps a Previous Runs history backfill possible.
 #'
 #' @param options Output of [parse_ingest_args()].
 #' @param config The source configuration.
 #' @param today The run date (UTC).
 #'
 #' @return A list with `geosphere` and `previous_runs` (each `NULL` or a list
-#'   with `start_date` and `end_date`), `forecast` (logical) and `single_runs`
-#'   (a `POSIXct` vector of run times, possibly empty).
+#'   with `start_date` and `end_date`), `forecast` (logical), `single_runs`
+#'   (a `POSIXct` vector of run times, possibly empty) and
+#'   `skipped_single_runs` (the number of runs before the archive start).
 #' @export
 plan_ingestion <- function(options, config, today) {
   check_single_date(today, "today")
@@ -37,7 +41,8 @@ plan_ingestion <- function(options, config, today) {
     geosphere = NULL,
     forecast = FALSE,
     previous_runs = NULL,
-    single_runs = .POSIXct(numeric(), tz = "UTC")
+    single_runs = .POSIXct(numeric(), tz = "UTC"),
+    skipped_single_runs = 0L
   )
 
   if ("geosphere" %in% options$sources) {
@@ -54,10 +59,13 @@ plan_ingestion <- function(options, config, today) {
     start <- if (daily) yesterday else options$start_date
     end <- if (daily) yesterday else options$end_date
     check_archive_start(start, openmeteo$previous_runs$archive_start, "Previous Runs")
-    check_archive_start(start, openmeteo$single_runs$archive_start, "Single Runs")
     plan$forecast <- daily
     plan$previous_runs <- list(start_date = start, end_date = end)
-    plan$single_runs <- cycle_times(start, end, openmeteo$single_runs$run_hours_utc)
+
+    runs <- cycle_times(start, end, openmeteo$single_runs$run_hours_utc)
+    archived <- as.Date(runs, tz = "UTC") >= as.Date(openmeteo$single_runs$archive_start)
+    plan$single_runs <- runs[archived]
+    plan$skipped_single_runs <- sum(!archived)
   }
   plan
 }

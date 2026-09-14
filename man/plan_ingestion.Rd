@@ -15,8 +15,9 @@ plan_ingestion(options, config, today)
 }
 \value{
 A list with \code{geosphere} and \code{previous_runs} (each \code{NULL} or a list
-with \code{start_date} and \code{end_date}), \code{forecast} (logical) and \code{single_runs}
-(a \code{POSIXct} vector of run times, possibly empty).
+with \code{start_date} and \code{end_date}), \code{forecast} (logical), \code{single_runs}
+(a \code{POSIXct} vector of run times, possibly empty) and
+\code{skipped_single_runs} (the number of runs before the archive start).
 }
 \description{
 Pure function turning the parsed command line and the run date into
@@ -33,6 +34,9 @@ on every configured cycle.
 }
 
 Backfills use \code{start_date}..\code{end_date} for every selected source (the
-current forecast snapshot cannot be backfilled). A range starting before an
-Open-Meteo archive start is refused rather than silently shortened.
+current forecast snapshot cannot be backfilled). A range starting before the
+Previous Runs archive is refused. The Single Runs archive starts much later
+(see \code{inst/config/sources.yml}), so model runs before its start are left out
+of the plan and counted in \code{skipped_single_runs}, which the CLI logs as a
+warning; this keeps a Previous Runs history backfill possible.
 }

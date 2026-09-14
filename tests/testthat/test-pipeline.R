@@ -34,17 +34,33 @@ test_that("a backfill uses the requested range and skips the current forecast", 
   expect_length(plan$single_runs, 8L)
 })
 
-test_that("a backfill starting before an Open-Meteo archive is refused, not shortened", {
+test_that("a backfill starting before the Previous Runs archive is refused", {
   config <- read_sources_config()
-  early <- daily_options(
-    mode = "backfill", start_date = as.Date("2026-03-01"), end_date = as.Date("2026-03-02")
+  too_early <- daily_options(
+    mode = "backfill", start_date = as.Date("2024-01-01"), end_date = as.Date("2024-02-10")
   )
-  expect_error(plan_ingestion(early, config, as.Date("2026-09-15")), class = "wxpipe_error_usage")
+  expect_error(
+    plan_ingestion(too_early, config, as.Date("2026-09-15")),
+    class = "wxpipe_error_usage"
+  )
 
-  geosphere_only <- utils::modifyList(early, list(sources = "geosphere"))
+  geosphere_only <- utils::modifyList(too_early, list(sources = "geosphere"))
   plan <- plan_ingestion(geosphere_only, config, as.Date("2026-09-15"))
   expect_length(plan$single_runs, 0L)
   expect_null(plan$previous_runs)
+})
+
+test_that("model runs before the Single Runs archive are left out and counted", {
+  # The Single Runs archive starts on 2026-04-02 (sources.yml).
+  options <- daily_options(
+    mode = "backfill", start_date = as.Date("2026-03-31"), end_date = as.Date("2026-04-02")
+  )
+  plan <- plan_ingestion(options, read_sources_config(), as.Date("2026-09-15"))
+
+  expect_identical(plan$previous_runs$start_date, as.Date("2026-03-31"))
+  expect_identical(plan$skipped_single_runs, 8L)
+  expect_true(all(as.Date(plan$single_runs, tz = "UTC") == as.Date("2026-04-02")))
+  expect_length(plan$single_runs, 4L)
 })
 
 # Running ----------------------------------------------------------------------------------
@@ -153,6 +169,20 @@ test_that("run_cli() exits 1 without touching sources when Google Cloud is unrea
 
   expect_identical(run$value, 1L)
   expect_true(any(grepl("Could not connect to Google Cloud", run$stderr, fixed = TRUE)))
+})
+
+test_that("run_cli() warns about skipped model runs in a backfill", {
+  args <- c(
+    "--source=openmeteo", "--mode=backfill", "--start-date=2026-04-01",
+    "--end-date=2026-04-02", "--dry-run"
+  )
+  dependencies <- list(fetchers = fake_fetchers(run_now))
+  run <- capture_logs(run_cli(args, run_now, fake_getenv(), dependencies))
+
+  expect_identical(run$value, 0L)
+  warning_lines <- run$stdout[grepl('"severity":"WARNING"', run$stdout, fixed = TRUE)]
+  expect_length(warning_lines, 1L)
+  expect_identical(jsonlite::parse_json(warning_lines)$skipped_runs, 4L)
 })
 
 test_that("every log line of a run is structured JSON carrying the run id", {
