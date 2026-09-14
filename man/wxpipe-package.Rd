@@ -11,7 +11,7 @@ Ingests daily station observations from the GeoSphere Austria Data Hub and numer
 \seealso{
 Useful links:
 \itemize{
-  \item \url{https://github.com/andreasrohland/weather-forecast-checker}
+  \item \url{https://github.com/arohland/weather-forecast-checker}
 }
 
 }

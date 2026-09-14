@@ -3,7 +3,7 @@
 project_id        = "your-project-id"
 region            = "europe-west3"
 bigquery_location = "europe-west3"
-github_repository = "andreasrohland/weather-forecast-checker"
+github_repository = "arohland/weather-forecast-checker"
 state_bucket      = "your-project-id-tfstate"
 
 # Leave unset for the first apply; set after the first image has been pushed.

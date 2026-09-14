@@ -6,7 +6,7 @@
 wxpipe_user_agent <- function() {
   paste0(
     "wxpipe/", utils::packageVersion("wxpipe"),
-    " (+https://github.com/andreasrohland/weather-forecast-checker)"
+    " (+https://github.com/arohland/weather-forecast-checker)"
   )
 }
 

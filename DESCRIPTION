@@ -9,7 +9,7 @@ Description: Ingests daily station observations from the GeoSphere Austria
     append-only tables into BigQuery. Designed to run as a scheduled Cloud
     Run Job; downstream modelling (dbt) and serving (Plumber) live elsewhere.
 License: MIT + file LICENSE
-URL: https://github.com/andreasrohland/weather-forecast-checker
+URL: https://github.com/arohland/weather-forecast-checker
 Depends:
     R (>= 4.5.0)
 Imports:
